@@ -1,0 +1,17 @@
+# リポジトリ内は LF に統一し、チェックアウト時は各OSに任せる
+* text=auto eol=lf
+
+# Markdown / テキスト
+*.md      text
+*.txt     text
+*.csv     text
+
+# バイナリ(差分を取らない)
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.pdf     binary
+*.xlsx    binary
+*.docx    binary
+*.pptx    binary

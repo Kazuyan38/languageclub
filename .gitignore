@@ -1,0 +1,22 @@
+# OS が生成するファイル
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# エディタ
+.vscode/
+.idea/
+*.swp
+*~
+
+# Office の一時ファイル
+~$*
+
+# 個人情報を含む可能性のあるファイル(誤コミット防止)
+# メンバー名簿や連絡先はリポジトリに置かない
+members-private*
+*-private.*
+.env
+.env.*
