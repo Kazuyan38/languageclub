@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>つたわる English</title>
+
+<!-- 検索結果・共有時に出る説明。外部リソースは一切参照しない。 -->
+<meta name="description" content="お手本を聞いて英語を声に出し、どこまで機械に伝わったかをその場で確かめる練習アプリ。大学の多言語サークル languageclub 用。記録はこの端末の中だけに残ります。">
+
+<!-- ダークモードは必須(部室・夜の自室で使う)。tokens.css の --c-bg と同じ値を入れる。 -->
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f7f8fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12151a" media="(prefers-color-scheme: dark)">
+
+<!-- favicon の 404 を避けるためのダミー。data: なので外部リクエストは発生しない。 -->
+<link rel="icon" href="data:,">
+
+<!--
+  ★第 0 層 ブートガード(仕様 §10-1)
+
+  仕様 §4 では body の末尾に置いているが、ここでは <head> に移した。理由:
+  <script src> は同期読み込みなので、body 末尾のインラインスクリプトが実行されるのは
+  「すべての外部スクリプトの読み込み(または失敗)が終わったあと」になる。
+  そこで error リスナを登録しても、script/link の読み込み失敗イベントはすでに終わっており
+  一度も捕まえられない。head に置いて初めて第 0 層が機能する。
+
+  やること:
+   (1) script / link(CSS)の読み込み失敗を捕捉して静的 HTML を出す
+   (2) 8 秒経っても LC.__bootOk が立たなければ「起動できませんでした」を出す
+  どちらも classic script + インライン handler だけで完結させる(外部依存ゼロ)。
+-->
+<script>
+(function () {
+  'use strict';
+
+  var PAGES_URL = 'https://kazuyan38.github.io/languageclub/app/';
+  var painted = false;
+  var queued = null;
+
+  /* 99-app.js が起動に成功(__bootOk)/ 失敗を自前で報告(__bootFailed)したら第 0 層は黙る。 */
+  function handled() {
+    return !!(window.LC && (window.LC.__bootOk || window.LC.__bootFailed));
+  }
+
+  function paint(title, bodyHtml) {
+    if (painted || handled()) return;
+    var el = document.getElementById('bootFallback');
+    if (!el) {
+      /* CSS の読み込み失敗は body の解析前に起きうる。要素ができるまで待つ。 */
+      queued = [title, bodyHtml];
+      document.addEventListener('DOMContentLoaded', function () {
+        if (!queued) return;
+        var q = queued;
+        queued = null;
+        paint(q[0], q[1]);
+      });
+      return;
+    }
+    painted = true;
+    el.innerHTML = '<h1>' + title + '</h1>' + bodyHtml;
+    /* style.css 自体が落ちている可能性があるので、表示だけは属性と inline で担保する。 */
+    el.hidden = false;
+    el.style.display = 'block';
+  }
+
+  function reloadButton() {
+    return '<p><button type="button" onclick="location.reload()">再読み込み</button></p>';
+  }
+
+  function pagesLine() {
+    return '<p>公開ページ: <a href="' + PAGES_URL + '">' + PAGES_URL + '</a></p>';
+  }
+
+  /* 読み込み失敗イベントはバブルしないので capture(第 3 引数 true)で拾う。 */
+  window.addEventListener('error', function (e) {
+    var t = e && e.target;
+    if (!t || t === window || !t.tagName) return;
+    if (t.tagName !== 'SCRIPT' && t.tagName !== 'LINK') return;
+    paint('ファイルの読み込みに失敗しました',
+      '<p>ページを再読み込みしてください。直らない場合は部のメンテ担当に連絡してください。</p>' +
+      reloadButton() + pagesLine());
+  }, true);
+
+  setTimeout(function () {
+    paint('起動できませんでした',
+      '<p>パソコンの <b>Google Chrome</b> でお試しください。</p>' +
+      pagesLine() + reloadButton());
+  }, 8000);
+})();
+</script>
+
+<link rel="stylesheet" href="./css/tokens.css">
+<link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">本文へスキップ</a>
+
+<div id="bootFallback" class="boot-fallback" hidden></div>
+
+<header class="hdr" id="hdr">
+  <button class="hdr__home" id="hdrHome" type="button" aria-label="ホームへ">つたわる English</button>
+  <span class="badge badge--demo" id="hdrBadge" hidden>体験モード</span>
+  <nav class="hdr__nav">
+    <a href="#/stats" id="navStats" aria-label="きろく"><span aria-hidden="true">📊</span></a>
+    <a href="#/settings" id="navSettings" aria-label="せってい"><span aria-hidden="true">⚙</span></a>
+    <a href="#/help" id="navHelp" aria-label="使い方と診断"><span aria-hidden="true">?</span></a>
+  </nav>
+</header>
+
+<div class="banner" id="bannerArea"></div>
+
+<main class="main" id="main" tabindex="-1"></main>
+
+<div id="statusRegion" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+<div id="toastArea" class="toast-area" aria-hidden="false"></div>
+
+<!-- ★ classic script のみ。ES モジュール形式の script は 1 つも書かない。並び順がそのまま依存関係。 -->
+<script src="./js/01-util.js"></script>
+<script src="./js/02-store.js"></script>
+<script src="./data/decks.js"></script>
+<script src="./js/03-text.js"></script>
+<script src="./js/04-catalog.js"></script>
+<script src="./js/05-speech.js"></script>
+<script src="./js/06-session.js"></script>
+<script src="./js/07-ui.js"></script>
+<script src="./js/08-screen-practice.js"></script>
+<script src="./js/09-screens.js"></script>
+<script src="./js/99-app.js"></script>
+</body>
+</html>

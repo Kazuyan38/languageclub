@@ -1,0 +1,1068 @@
+/* =====================================================================
+   つたわる English — css/style.css
+   仕様 §8-3〜8-6。レイアウトとコンポーネント。
+
+   ★このファイルの不変ルール:
+     - 色・余白の直値を書かない。tokens.css の変数だけを使う。
+     - 命名は簡易 BEM(.block__element--modifier)。ネストは 2 段まで。
+     - 判定表示は「色は 4 番目の手がかり」。記号・下線形状・テキストで意味が通ること。
+     - モバイルファースト。拡張は @media (min-width: 640px) だけ。
+
+   目次:
+     1. 骨格(.hdr / .banner / .main)
+     2. 汎用タイポグラフィ / .card / ユーティリティ
+     3. .btn
+     4. バッジ・タグ・ドット
+     5. ホーム(.deck-card)
+     6. オンボーディング(.onb)
+     7. 練習画面(.phrase-* / .mic-panel / .level-meter / .interim)
+     8. 判定表示(.w--*)と結果(.result)
+     9. サマリ / きろく
+    10. 設定(フォーム部品)
+    11. 使い方・診断 / 自作デッキ
+    12. トースト / エラーパネル / 非対応画面
+    13. アニメーション
+    14. 640px 以上への拡張
+    15. アクセシビリティ(§8-6)
+   ===================================================================== */
+
+
+/* =====================================================================
+   1. 骨格
+   ===================================================================== */
+
+/* iPhone のホームバー等にボタンが隠れないように。 */
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+/* --- ヘッダ(sticky, 56px) --- */
+.hdr {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--hdr-h);
+  padding: 0 var(--sp-3);
+  background: var(--c-surface);
+  border-bottom: var(--border-w) solid var(--c-border);
+}
+.hdr__home {
+  min-width: 0;
+  padding: var(--sp-2);
+  border-radius: var(--radius-sm);
+  color: var(--c-text);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.hdr__home:hover { background: var(--c-hover); }
+
+.hdr__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-left: auto;
+}
+.hdr__nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  border-radius: var(--radius-sm);
+  color: var(--c-text-mute);
+  font-size: var(--fs-lg);
+  text-decoration: none;
+}
+.hdr__nav a:hover { background: var(--c-hover); color: var(--c-text); }
+.hdr__nav a[aria-current="page"] { background: var(--c-brand-soft); color: var(--c-brand); }
+
+/* --- 警告帯(#bannerArea)---
+   renderBanner() がどんな要素を吐いても 1 本の帯に見えるよう、
+   直下の div / p / section と .banner__item の両方を拾う。
+   帯の中に置かれた .btn は巻き込まない(セレクタに含めない)。 */
+.banner:empty { display: none; }
+.banner > div,
+.banner > p,
+.banner > section,
+.banner__item,
+.banner--warn,
+.banner--info,
+.banner--error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--c-warn-soft);
+  color: var(--c-text);
+  border-bottom: var(--border-w) solid var(--c-border);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-tight);
+}
+.banner--warn  { background: var(--c-warn-soft); }
+.banner--info  { background: var(--c-brand-soft); }
+.banner--error { background: var(--c-err-soft); }
+.banner .btn { flex: none; }
+
+/* --- 本文 --- */
+.main {
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-4) var(--sp-4) var(--sp-8);
+}
+/* tabindex="-1" への programmatic focus で枠が出ると見た目がうるさい。
+   キーボード操作(:focus-visible)の枠は §15 で別途出す。 */
+.main:focus { outline: none; }
+.main > * + * { margin-top: var(--sp-4); }
+
+
+/* =====================================================================
+   2. 汎用タイポグラフィ / .card / ユーティリティ
+   画面ファイルが素の h2 / p / ul を書いても崩れないようにしておく。
+   ===================================================================== */
+.main h1 { font-size: var(--fs-2xl); }
+.main h2 { font-size: var(--fs-xl); }
+.main h3 { font-size: var(--fs-lg); }
+
+.card {
+  padding: var(--sp-4);
+  background: var(--c-surface);
+  border: var(--border-w) solid var(--c-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-1);
+}
+.card > * + * { margin-top: var(--sp-3); }
+.card--flat { box-shadow: none; background: transparent; }
+.card--soft { background: var(--c-surface-2); box-shadow: none; }
+
+/* 見出しに ▍ の縦棒を付けたセクション見出し(§7-5 のワイヤーフレーム)。 */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-left: var(--sp-3);
+  border-left: var(--sp-1) solid var(--c-brand);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+/* 箇条書き。リセットで list-style を消しているので、点はここで付ける。 */
+.list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.list > li { display: flex; gap: var(--sp-2); }
+.list > li::before { content: "・"; flex: none; color: var(--c-text-mute); }
+
+/* 最小限のユーティリティ */
+.stack  { display: flex; flex-direction: column; gap: var(--sp-3); }
+.row    { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.center { text-align: center; }
+.grow   { flex: 1 1 auto; min-width: 0; }
+.muted  { color: var(--c-text-mute); }
+.small  { font-size: var(--fs-sm); }
+.nums   { font-variant-numeric: tabular-nums; }
+.en     { font-family: var(--font-en); overflow-wrap: anywhere; }
+
+/* [Space] のようなキー表示 */
+.kbd {
+  padding: 0 var(--sp-1);
+  background: var(--c-surface-2);
+  border: var(--border-w) solid var(--c-border);
+  border-radius: var(--radius-sm);
+  color: var(--c-text-mute);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+hr {
+  height: 0;
+  margin: var(--sp-4) 0;
+  border: 0;
+  border-top: var(--border-w) solid var(--c-border);
+}
+
+
+/* =====================================================================
+   3. ボタン
+   主ボタン: 高さ 64px(--sp-8)・幅 100%。共有 PC でも迷わず押せる大きさ。
+   ===================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--tap);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--c-surface);
+  color: var(--c-text);
+  border: var(--border-w) solid var(--c-border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) linear,
+              border-color var(--dur-fast) linear;
+}
+.btn:hover { background: var(--c-hover); }
+
+.btn--primary {
+  width: 100%;
+  min-height: var(--sp-8);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-brand);
+  color: var(--c-brand-ink);
+  border-color: var(--c-brand);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  box-shadow: var(--shadow-1);
+}
+.btn--primary:hover { background: var(--c-brand-hover); border-color: var(--c-brand-hover); }
+
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--c-brand);
+}
+.btn--ghost:hover { background: var(--c-brand-soft); }
+
+.btn--danger {
+  background: var(--c-surface);
+  color: var(--c-err);
+  border-color: var(--c-err);
+}
+.btn--danger:hover { background: var(--c-err-soft); }
+
+.btn--sm { min-height: var(--tap); padding: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
+.btn--block { width: 100%; }
+
+/* 無効化。§12-1 のとおり disabled と aria-disabled は必ず同時に付く前提。 */
+.btn[disabled],
+.btn[aria-disabled="true"] {
+  opacity: .5;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.btn[disabled]:hover,
+.btn[aria-disabled="true"]:hover { background: var(--c-surface); }
+.btn--primary[disabled]:hover,
+.btn--primary[aria-disabled="true"]:hover { background: var(--c-brand); }
+
+/* ボタンの並び。主ボタンの下の「▶ お手本だけ / 🐢 ゆっくり / 🎤 話すだけ」など。 */
+.actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.actions--sub { justify-content: center; }
+.actions--sub .btn { flex: 1 1 auto; }
+.actions--stack { flex-direction: column; }
+.actions--stack .btn { width: 100%; }
+
+
+/* =====================================================================
+   4. バッジ・タグ・進捗ドット
+   ===================================================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--sp-5);
+  padding: 0 var(--sp-2);
+  background: var(--c-surface-2);
+  color: var(--c-text-mute);
+  border: var(--border-w) solid var(--c-border);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.badge--demo { background: var(--c-warn-soft); color: var(--c-warn); border-color: var(--c-warn); }
+.badge--ok   { background: var(--c-ok-soft);   color: var(--c-ok);   border-color: var(--c-ok); }
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--c-surface-2);
+  color: var(--c-text-mute);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+}
+.tag-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* ●/○ の形で区別する(色だけに頼らない)。role="img" + aria-label 前提。 */
+.progress-dots,
+.attempt-dots {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  line-height: 1;
+  letter-spacing: .16em;
+  white-space: nowrap;
+}
+.progress-dots { color: var(--c-brand); }
+.progress-dots--done { color: var(--c-ok); }
+.attempt-dots { color: var(--c-ok); }
+
+
+/* =====================================================================
+   5. ホーム(§7-2)
+   デッキカードは <a href="#/practice/..."> 。JS が壊れても遷移できる。
+   ===================================================================== */
+.home-greet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2) var(--sp-3);
+}
+.home-greet__main { font-size: var(--fs-lg); font-weight: 700; }
+.home-greet__streak {
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--c-ok-soft);
+  color: var(--c-ok);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.deck-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.deck-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  min-height: var(--sp-8);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-surface);
+  color: var(--c-text);
+  border: var(--border-w) solid var(--c-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-1);
+  text-decoration: none;
+  transition: border-color var(--dur-fast) linear, background-color var(--dur-fast) linear;
+}
+.deck-card:hover { background: var(--c-hover); border-color: var(--c-brand); }
+.deck-card__icon { grid-row: 1 / -1; font-size: var(--fs-xl); line-height: 1; }
+.deck-card__title { font-size: var(--fs-lg); font-weight: 700; }
+.deck-card__sub {
+  grid-column: 2;
+  color: var(--c-text-mute);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-tight);
+}
+.deck-card__progress {
+  grid-row: 1 / -1;
+  grid-column: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-1);
+  color: var(--c-text-mute);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.deck-card--done { border-color: var(--c-ok); }
+.deck-card--done .deck-card__progress { color: var(--c-ok); }
+/* 「✏ 自分でフレーズを追加する →」用。既存デッキと見た目で区別する。 */
+.deck-card--add {
+  background: transparent;
+  border-style: dashed;
+  box-shadow: none;
+  color: var(--c-brand);
+  font-weight: 700;
+}
+
+
+/* =====================================================================
+   6. オンボーディング(§7-1)
+   ===================================================================== */
+.onb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  text-align: center;
+}
+.onb__icon { font-size: var(--fs-2xl); line-height: 1; }
+.onb__title { font-size: var(--fs-xl); font-weight: 700; }
+.onb__body {
+  max-width: 34em;
+  text-align: left;
+  font-size: var(--fs-md);
+}
+.onb__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  width: 100%;
+  text-align: left;
+  font-size: var(--fs-sm);
+}
+.onb__list > li { display: flex; gap: var(--sp-2); }
+.onb__list > li::before { content: "・"; flex: none; color: var(--c-text-mute); }
+/* 「※ このアプリが測るのは…」の但し書き。 */
+.onb__note {
+  width: 100%;
+  padding: var(--sp-3);
+  background: var(--c-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--c-text-mute);
+  text-align: left;
+  font-size: var(--fs-sm);
+}
+.onb__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+}
+.onb__dots { display: flex; justify-content: center; gap: var(--sp-2); }
+.onb__dot {
+  width: var(--sp-2);
+  height: var(--sp-2);
+  background: var(--c-border);
+  border-radius: var(--radius-pill);
+}
+.onb__dot--active { background: var(--c-brand); }
+.onb__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  width: 100%;
+}
+
+
+/* =====================================================================
+   7. 練習画面(§7-3)★中核
+   ===================================================================== */
+.practice { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+.practice__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.practice__back { flex: none; }
+.practice__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.practice__counter {
+  flex: none;
+  color: var(--c-text-mute);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* お手本カード。英文が主役なので装飾は最小限。 */
+.phrase-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.phrase-en {
+  font-family: var(--font-en);
+  font-size: var(--fs-en);
+  font-weight: 600;
+  line-height: var(--lh-en);
+  letter-spacing: .005em;
+  color: var(--c-text);
+  overflow-wrap: anywhere;   /* 横スクロールを絶対に作らない */
+}
+.phrase-ja {
+  color: var(--c-text-mute);
+  font-size: var(--fs-md);
+  line-height: var(--lh-base);
+}
+.phrase-note {
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--c-brand-soft);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-tight);
+}
+
+/* 「🎧 イヤホンの使用をおすすめします」など、画面下の控えめな一言。
+   R2(エコー)対策の最終防衛線なので、消さないこと。 */
+.hint-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--c-text-mute);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-tight);
+}
+
+/* --- LISTENING のパネル ---
+   「録音中」は赤い点で示し、パネル自体はエラー色にしない。
+   面ごと赤くすると「失敗した」と誤読される。 */
+.mic-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--c-brand-soft);
+  border: var(--sp-1) solid var(--c-brand);
+  border-radius: var(--radius-md);
+}
+.mic-panel__title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+.mic-panel__rec {
+  flex: none;
+  width: var(--sp-3);
+  height: var(--sp-3);
+  background: var(--c-err);
+  border-radius: var(--radius-pill);
+  animation: lc-pulse 1.2s ease-in-out infinite;
+}
+.mic-panel__timer {
+  color: var(--c-text-mute);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.mic-panel__warn {
+  display: flex;
+  gap: var(--sp-2);
+  color: var(--c-warn);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+/* 入力レベル。tooQuiet() のときは --quiet で橙に落とす。 */
+.level-meter {
+  position: relative;
+  height: var(--sp-3);
+  background: var(--c-surface-2);
+  border: var(--border-w) solid var(--c-border);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.level-meter__bar {
+  width: 0;
+  height: 100%;
+  background: var(--c-ok);
+  border-radius: inherit;
+  transition: width var(--dur-fast) linear;
+}
+.level-meter--quiet .level-meter__bar,
+.level-meter__bar--quiet { background: var(--c-warn); }
+.level-meter--off { opacity: .4; }
+
+/* 途中経過テキスト。aria-live="off" 前提(頻繁に書き換わるので読み上げない)。 */
+.interim {
+  min-height: var(--sp-6);
+  color: var(--c-text-mute);
+  font-family: var(--font-en);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-en);
+  overflow-wrap: anywhere;
+}
+
+
+/* =====================================================================
+   8. 判定表示(§8-3)と結果(§7-3 D)
+
+   ★原則: 色は 4 番目の手がかり。
+     ①記号(.w__mark) ②下線・枠の形 ③テキスト(.w__heard) ④色
+     グレースケールに落としても意味が完全に伝わること。
+   ===================================================================== */
+.w {
+  position: relative;
+  display: inline-block;          /* .w__heard が block なので inline-block にする */
+  padding: 0 .12em;
+  text-underline-offset: .18em;
+  text-decoration-skip-ink: none; /* 下線が p / g で途切れると形が読み取れない */
+}
+.w__mark { font-size: .68em; vertical-align: super; }
+.w__heard { display: block; font-size: .68em; color: var(--c-text-mute); }
+
+.w--correct     { }                                             /* 装飾なし = 正解 */
+.w--homophone   { text-decoration: underline dotted 1px; }
+.w--near        { text-decoration: underline wavy   2px; color: var(--c-warn); }
+.w--partial     { text-decoration: underline wavy   2px; color: var(--c-warn); }
+.w--substitution{ text-decoration: underline double 2px; color: var(--c-err); }
+.w--deletion    { opacity: .55; text-decoration: line-through 1px;
+                  border-bottom: 2px dotted var(--c-err); }
+.w--insertion   { border: 1px dashed var(--c-border); border-radius: var(--radius-pill);
+                  font-size: .8em; padding: 0 .35em; color: var(--c-text-mute); }
+/* フィラー等、採点から外した語。薄く出すだけで印は付けない。 */
+.w--ignored     { opacity: .45; }
+
+/* --- 結果ブロック。表示順序(事実 → 詳細 → 総括 → 要約 → 次の行動)は
+       画面側が守る。CSS はその順序を邪魔しない縦積みにするだけ。 --- */
+.result { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+/* ① 聞こえた文 — 装飾なしの事実。強調も評価もしない。 */
+.result__heard {
+  padding: var(--sp-3);
+  background: var(--c-surface-2);
+  border: var(--border-w) solid var(--c-border);
+  border-radius: var(--radius-sm);
+  color: var(--c-text);
+  font-family: var(--font-en);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-en);
+  overflow-wrap: anywhere;
+}
+.result__heard:empty::before { content: "—"; color: var(--c-text-mute); }
+
+/* ② お手本(.w を並べる)。
+   .w__heard が語の下にぶら下がるので、flex で上端を揃えて行を崩さない。 */
+.result__sentence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--sp-3) var(--sp-1);
+  font-family: var(--font-en);
+  font-size: var(--fs-xl);
+  line-height: var(--lh-en);
+}
+
+/* ③ バンド(◎ ○ △ ▢ とラベル)。点数はここでは主役にしない。 */
+.result__band {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+}
+.result__label { font-size: var(--fs-md); font-weight: 700; }
+.result__score {
+  color: var(--c-text-mute);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.result__delta { color: var(--c-text-mute); font-size: var(--fs-sm); }
+
+/* 「7 語中 6 語が伝わりました」 */
+.result__summary { font-size: var(--fs-md); }
+
+/* ④ テキストサマリ(色分けを一切見なくても分かる冗長経路。§12-3) */
+.summary-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-2);
+  color: var(--c-text-mute);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-tight);
+}
+.summary-line__label { flex: none; font-weight: 700; }
+
+/* ⑤ 次の行動。「🔁 もう一度」を左・大きく置く(発話回数が唯一の実効変数)。 */
+.result__actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.result__actions .btn--retry { flex: 1 1 60%; min-height: var(--sp-7); font-size: var(--fs-lg); }
+.exclude-line {
+  display: flex;
+  justify-content: flex-start;
+  font-size: var(--fs-sm);
+}
+
+/* バンドの色(補助)。記号とラベルが本体なので、色が無くても成立する。 */
+.band { display: inline-flex; align-items: baseline; gap: var(--sp-2); }
+.band--excellent { color: var(--c-ok); }
+.band--good      { color: var(--c-ok); }
+.band--fair      { color: var(--c-warn); }
+.band--retry     { color: var(--c-text-mute); }
+
+
+/* =====================================================================
+   9. サマリ(§7-4) / きろく(§7-5)
+   ===================================================================== */
+.summary { display: flex; flex-direction: column; gap: var(--sp-4); text-align: center; }
+.summary__title { font-size: var(--fs-2xl); font-weight: 700; }
+.summary__stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2) var(--sp-5);
+  color: var(--c-text-mute);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-section { display: flex; flex-direction: column; gap: var(--sp-3); }
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-5);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 直近 7 日の棒グラフ */
+.bars { display: flex; align-items: flex-end; gap: var(--sp-2); }
+.bars__col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); }
+.bars__track { display: flex; align-items: flex-end; width: 100%; height: var(--sp-8); }
+.bars__bar {
+  width: 100%;
+  min-height: var(--border-w);
+  background: var(--c-brand);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.bars__bar--empty { background: var(--c-surface-2); }
+.bars__label { color: var(--c-text-mute); font-size: var(--fs-xs); }
+
+/* 通じにくかった語のリスト(§7-4 / §7-5 共通) */
+.trouble-list { display: flex; flex-direction: column; }
+.trouble-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: var(--border-w) solid var(--c-border);
+}
+.trouble-item__word {
+  font-family: var(--font-en);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.trouble-item__rate {
+  color: var(--c-text-mute);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.trouble-item__heard {
+  grid-column: 1 / -1;
+  color: var(--c-text-mute);
+  font-family: var(--font-en);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+
+/* 「この記録はこのパソコンに保存されています」— 共有 PC 配慮で常時表示。 */
+.notice-local {
+  padding: var(--sp-4) 0;
+  color: var(--c-text-mute);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+
+
+/* =====================================================================
+   10. 設定(§7-6)。フォーム部品はここに集約する。
+   ===================================================================== */
+fieldset { min-width: 0; padding: 0; border: 0; }
+legend { padding: 0; font-weight: 700; }
+
+.field { display: flex; flex-direction: column; gap: var(--sp-2); }
+.field + .field { margin-top: var(--sp-5); }
+.field__label { font-size: var(--fs-md); font-weight: 700; }
+.field__help { color: var(--c-text-mute); font-size: var(--fs-sm); line-height: var(--lh-tight); }
+
+.radio-list { display: flex; flex-direction: column; gap: var(--sp-1); }
+.radio-row,
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--tap);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.radio-row:hover,
+.check-row:hover { background: var(--c-hover); }
+.radio-row__text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.radio-row__sub { color: var(--c-text-mute); font-size: var(--fs-sm); line-height: var(--lh-tight); }
+
+/* 声のグループ(オフライン / インターネットが必要) */
+.voice-group { display: flex; flex-direction: column; gap: var(--sp-1); }
+.voice-group__title {
+  color: var(--c-text-mute);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+input[type="radio"],
+input[type="checkbox"] {
+  flex: none;
+  width: var(--sp-5);
+  height: var(--sp-5);
+  accent-color: var(--c-brand);
+  cursor: pointer;
+}
+
+/* 3 ボタン固定の選択(速さ・認識する英語・テーマ)。スライダーは使わない。 */
+.seg { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.seg__btn {
+  min-height: var(--tap);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--c-surface);
+  color: var(--c-text);
+  border: var(--border-w) solid var(--c-border);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.seg__btn:hover { background: var(--c-hover); }
+.seg__btn--on,
+.seg__btn[aria-pressed="true"],
+.seg__btn[aria-checked="true"] {
+  background: var(--c-brand);
+  color: var(--c-brand-ink);
+  border-color: var(--c-brand);
+}
+
+textarea,
+select,
+input[type="text"] {
+  width: 100%;
+  padding: var(--sp-3);
+  background: var(--c-surface);
+  color: var(--c-text);
+  border: var(--border-w) solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-md);
+  line-height: var(--lh-base);
+}
+textarea {
+  min-height: calc(var(--sp-8) * 2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  resize: vertical;
+}
+
+
+/* =====================================================================
+   11. 使い方・診断(§7-7) / 自作デッキ(§7-8)
+   ===================================================================== */
+.diag-list { display: flex; flex-direction: column; }
+.diag-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+  border-bottom: var(--border-w) solid var(--c-border);
+  font-size: var(--fs-sm);
+}
+.diag-row__icon { font-size: var(--fs-md); }
+.diag-row__label { font-weight: 600; }
+.diag-row__value {
+  color: var(--c-text-mute);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.diag-row--warn .diag-row__value { color: var(--c-warn); }
+.diag-row--err  .diag-row__value { color: var(--c-err); }
+.diag-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* chrome://settings/content/microphone は JS から開けないので、
+   コピーボタン付きテキストで見せる(§5-2)。 */
+.code-copy { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.code-copy__text {
+  flex: 1 1 12em;
+  min-width: 0;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--c-surface-2);
+  border: var(--border-w) solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  overflow-x: auto;
+  user-select: all;
+}
+
+.deck-editor { display: flex; flex-direction: column; gap: var(--sp-3); }
+.deck-editor__help {
+  color: var(--c-text-mute);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+}
+.custom-deck-list { display: flex; flex-direction: column; }
+.custom-deck-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0;
+  border-bottom: var(--border-w) solid var(--c-border);
+}
+.custom-deck-row__name { flex: 1 1 auto; min-width: 0; font-weight: 700; }
+
+/* 行番号つきのエラー報告(parsePasted) */
+.error-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  background: var(--c-err-soft);
+  border-radius: var(--radius-sm);
+  color: var(--c-err);
+  font-size: var(--fs-sm);
+}
+
+
+/* =====================================================================
+   12. トースト / エラーパネル / 非対応画面
+   ===================================================================== */
+.toast-area {
+  position: fixed;
+  right: var(--sp-4);
+  bottom: var(--sp-4);
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  max-width: min(92vw, 380px);
+  pointer-events: none;   /* 背後のボタンを塞がない */
+}
+.toast {
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-surface);
+  color: var(--c-text);
+  border: var(--border-w) solid var(--c-border);
+  border-left: var(--sp-1) solid var(--c-brand);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-tight);
+  pointer-events: auto;
+  animation: lc-toast-in var(--dur-base) ease-out;
+}
+.toast--warn  { background: var(--c-warn-soft); border-left-color: var(--c-warn); }
+.toast--error { background: var(--c-err-soft);  border-left-color: var(--c-err); }
+
+/* モーダルは使わない(§12-1)。エラーは必ずインラインパネル。 */
+.panel-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--c-err-soft);
+  border: var(--border-w) solid var(--c-err);
+  border-left: var(--sp-1) solid var(--c-err);
+  border-radius: var(--radius-md);
+}
+.panel-error__title { color: var(--c-err); font-size: var(--fs-lg); font-weight: 700; }
+.panel-error__body { font-size: var(--fs-md); line-height: var(--lh-base); }
+.panel-error__actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.panel-error__detail {
+  max-height: 40vh;
+  padding: var(--sp-3);
+  background: var(--c-surface);
+  border: var(--border-w) solid var(--c-border);
+  border-radius: var(--radius-sm);
+  color: var(--c-text-mute);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  white-space: pre-wrap;
+  overflow: auto;
+}
+
+/* 非対応ブラウザ画面(§10-3)。必ず「音声なしでフレーズ集を見る」を併置する。 */
+.blocker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-6) var(--sp-2);
+  text-align: center;
+}
+.blocker__icon { font-size: var(--fs-2xl); line-height: 1; }
+.blocker__title { font-size: var(--fs-xl); font-weight: 700; }
+.blocker__body { max-width: 34em; text-align: left; }
+
+
+/* =====================================================================
+   13. アニメーション(prefers-reduced-motion で §15 が無効化する)
+   ===================================================================== */
+@keyframes lc-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .25; }
+}
+@keyframes lc-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+
+/* =====================================================================
+   14. 640px 以上への拡張(モバイルファーストの上乗せだけ)
+   ===================================================================== */
+@media (min-width: 640px) {
+  .hdr { padding: 0 var(--sp-5); }
+  .main { padding: var(--sp-5) var(--sp-5) var(--sp-8); }
+  .card { padding: var(--sp-5); }
+
+  .deck-card { padding: var(--sp-4) var(--sp-5); }
+
+  .onb { padding: var(--sp-5) 0; }
+  .onb__actions { flex-direction: row; justify-content: center; }
+  .onb__actions .btn { width: auto; min-width: calc(var(--sp-8) * 3); }
+
+  .actions--sub .btn { flex: 0 1 auto; }
+
+  .summary__stats { font-size: var(--fs-md); }
+}
+
+
+/* =====================================================================
+   15. アクセシビリティ(§8-6 / §12)
+   ===================================================================== */
+:focus-visible {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Windows のハイコントラストモード。判定の意味は記号と下線が担うので、
+   色を失っても情報は落ちない。枠だけは明示的に描き直す。 */
+@media (forced-colors: active) {
+  .w { forced-color-adjust: none; color: CanvasText; }
+  .btn { border: 1px solid ButtonBorder; }
+  .card, .deck-card { border: 1px solid CanvasText; }
+  .mic-panel, .panel-error, .toast, .level-meter { border: 1px solid CanvasText; }
+  .level-meter__bar { background: Highlight; }
+  .bars__bar { background: Highlight; }
+  .seg__btn--on,
+  .seg__btn[aria-pressed="true"],
+  .seg__btn[aria-checked="true"] { background: Highlight; color: HighlightText; }
+}
+
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+           overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+.skip-link { position:absolute; left:-9999px; }
+.skip-link:focus { left:var(--sp-4); top:var(--sp-4); z-index:100;
+                   background:var(--c-surface); padding:var(--sp-3); }

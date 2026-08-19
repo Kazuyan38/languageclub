@@ -1,0 +1,149 @@
+/* =====================================================================
+   つたわる English — css/tokens.css
+   仕様 §8-2。リセット + デザイントークン(CSS 変数)だけを置く。
+   ここ以外(style.css)では色・余白の直値を書かない。
+
+   このファイルの役割は 3 つだけ:
+     1. ブラウザ差を潰す最小リセット
+     2. トークン(変数)の定義
+     3. #bootFallback の最低限のスタイル(他の CSS が壊れても読めるように)
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. リセット(15 行程度。Normalize.css も「外部依存」なので入れない)
+   --------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  line-height: var(--lh-base);
+  background: var(--c-bg);
+  color: var(--c-text);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { font-size: inherit; font-weight: 700; line-height: var(--lh-tight); }
+p, li, h1, h2, h3, h4 { overflow-wrap: break-word; }
+ul, ol { padding: 0; list-style: none; }
+img, svg, video { display: block; max-width: 100%; }
+input, button, textarea, select { font: inherit; color: inherit; }
+button { background: none; border: 0; }
+a { color: var(--c-brand); }
+table { border-collapse: collapse; }
+pre, code { font-family: var(--font-mono); }
+[hidden] { display: none !important; }
+
+/* ---------------------------------------------------------------------
+   2. トークン(ライト = 既定)
+   --------------------------------------------------------------------- */
+:root {
+  color-scheme: light dark;
+
+  --font-ui: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN",
+             "Yu Gothic UI", "Meiryo", sans-serif;
+  --font-en: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, Menlo, monospace;
+
+  --fs-xs: .75rem;  --fs-sm: .875rem; --fs-md: 1rem; --fs-lg: 1.125rem;
+  --fs-xl:  clamp(1.25rem, 1rem + 1.2vw, 1.5rem);
+  --fs-2xl: clamp(1.5rem, 1.1rem + 2vw, 2rem);
+  --fs-en:  clamp(1.375rem, 1.1rem + 1.6vw, 1.75rem);
+  --lh-tight: 1.3; --lh-base: 1.7; --lh-en: 1.55;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
+
+  --radius-sm: 6px; --radius-md: 12px; --radius-lg: 20px; --radius-pill: 999px;
+  --border-w: 1px; --tap: 44px; --content-max: 720px; --hdr-h: 56px;
+
+  --c-bg: #f7f8fa;        --c-surface: #ffffff;   --c-surface-2: #eef1f5;
+  --c-text: #14181f;      --c-text-mute: #5a6472; --c-border: #d3d9e0;
+  --c-brand: #1f5fa8;     --c-brand-ink: #ffffff; --c-brand-soft: #e4eefa;
+  --c-ok: #1c6b3f;        --c-ok-soft: #e2f2e8;
+  --c-warn: #9a5a00;      --c-warn-soft: #fdf0dc;
+  --c-err: #b3261e;       --c-err-soft: #fbe6e4;
+  --c-focus: #0b63ce;
+
+  --shadow-1: 0 1px 2px rgba(20,24,31,.08), 0 1px 6px rgba(20,24,31,.05);
+  --shadow-2: 0 4px 12px rgba(20,24,31,.12);
+  --dur-fast: 120ms; --dur-base: 200ms;
+
+  /* 仕様 §8-2 への追加(style.css で直値を書かないために必要になった 2 つ)
+     --c-brand-hover : 主ボタンのホバー色
+     --c-hover       : 行・カードのごく薄いホバー面 */
+  --c-brand-hover: #17497f;
+  --c-hover: rgba(20,24,31,.05);
+}
+
+/* ---------------------------------------------------------------------
+   3. ダークモード(必須。部室や夜の自室で使う)
+   自動(OS 追従)。data-theme="light" が手で選ばれているときは効かせない。
+   --------------------------------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --c-bg:#12151a; --c-surface:#1b1f26; --c-surface-2:#262b34;
+    --c-text:#e8ecf1; --c-text-mute:#9aa5b4; --c-border:#333a45;
+    --c-brand:#6faaf0; --c-brand-ink:#0d1117; --c-brand-soft:#1d2a3c;
+    --c-ok:#58c98c;   --c-ok-soft:#16301f;
+    --c-warn:#e2a44a; --c-warn-soft:#35270f;
+    --c-err:#f0837c;  --c-err-soft:#38181a;
+    --c-focus:#7ab6ff; --shadow-1:none; --shadow-2:0 4px 16px rgba(0,0,0,.5);
+
+    --c-brand-hover:#8dbdf5;
+    --c-hover: rgba(255,255,255,.06);
+  }
+}
+
+/* 手動でダークを選んだとき。OS がライトでも効かせたいので、
+   メディアクエリの外に同じ上書きをもう一度書く(値の重複は意図的)。 */
+:root[data-theme="dark"] {
+  --c-bg:#12151a; --c-surface:#1b1f26; --c-surface-2:#262b34;
+  --c-text:#e8ecf1; --c-text-mute:#9aa5b4; --c-border:#333a45;
+  --c-brand:#6faaf0; --c-brand-ink:#0d1117; --c-brand-soft:#1d2a3c;
+  --c-ok:#58c98c;   --c-ok-soft:#16301f;
+  --c-warn:#e2a44a; --c-warn-soft:#35270f;
+  --c-err:#f0837c;  --c-err-soft:#38181a;
+  --c-focus:#7ab6ff; --shadow-1:none; --shadow-2:0 4px 16px rgba(0,0,0,.5);
+
+  --c-brand-hover:#8dbdf5;
+  --c-hover: rgba(255,255,255,.06);
+}
+
+/* フォームコントロール(チェックボックス・select 等)の地色も手動選択に追従させる。
+   color-scheme を書かないと「本文はダークなのにフォームだけ白」になる。 */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"]  { color-scheme: dark; }
+
+/* ---------------------------------------------------------------------
+   4. #bootFallback(仕様 §4 のブートガードが出すパネル)
+   style.css が 404 でも読めるように、変数に頼らない値をフォールバックで持たせる。
+   このファイル自体が読めない最悪ケースでも、ブラウザ既定の黒文字/白背景で読める。
+   --------------------------------------------------------------------- */
+.boot-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: auto;
+  padding: 24px;
+  background: var(--c-surface, #ffffff);
+  color: var(--c-text, #14181f);
+  font-family: var(--font-ui, system-ui, sans-serif);
+  font-size: 16px;
+  line-height: 1.7;
+}
+.boot-fallback h1 { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+.boot-fallback p { max-width: 640px; margin: 12px 0; }
+.boot-fallback a { color: var(--c-brand, #1f5fa8); }
+.boot-fallback button {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--c-border, #d3d9e0);
+  border-radius: 8px;
+  background: var(--c-brand, #1f5fa8);
+  color: var(--c-brand-ink, #ffffff);
+  font-size: 16px;
+  cursor: pointer;
+}

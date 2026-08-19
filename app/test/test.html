@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>つたわる English — 自己テスト</title>
+<!--
+  ダブルクリックで開ける自作テストランナー。
+  外部ライブラリもビルドも fetch も使わない。classic script だけで完結させている。
+  (file:// では module script と fetch が CORS で死ぬため)
+
+  読み込むのは「DOM に触らない層」だけ:
+    01-util / 02-store / data/decks / 03-text / 04-catalog
+  音声(05-speech)と画面(07〜09)はここでは読み込まない。手で確かめる領域。
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f8fa; --surface: #ffffff; --surface-2: #eef1f5;
+    --text: #14181f; --mute: #5a6472; --border: #d3d9e0;
+    --ok: #1c6b3f; --ok-soft: #e2f2e8;
+    --ng: #b3261e; --ng-soft: #fbe6e4;
+    --skip: #9a5a00; --skip-soft: #fdf0dc;
+    --mono: ui-monospace, SFMono-Regular, Consolas, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a; --surface: #1b1f26; --surface-2: #262b34;
+      --text: #e8ecf1; --mute: #9aa5b4; --border: #333a45;
+      --ok: #58c98c; --ok-soft: #16301f;
+      --ng: #f0837c; --ng-soft: #38181a;
+      --skip: #e2a44a; --skip-soft: #35270f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 64px;
+    background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN",
+                 "Yu Gothic UI", "Meiryo", sans-serif;
+    line-height: 1.7;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  .lead { color: var(--mute); font-size: .875rem; margin: 0 0 20px; }
+
+  /* 合格数 / 失敗数のサマリ。最上部に大きく出す */
+  .summary {
+    border-radius: 14px; padding: 18px 20px; margin-bottom: 16px;
+    border: 2px solid var(--border); background: var(--surface);
+  }
+  .summary__headline { font-size: clamp(1.5rem, 1.1rem + 2.4vw, 2.25rem); font-weight: 800; line-height: 1.25; }
+  .summary__sub { font-size: .95rem; color: var(--mute); margin-top: 6px; }
+  .summary--pass { border-color: var(--ok); background: var(--ok-soft); }
+  .summary--pass .summary__headline { color: var(--ok); }
+  .summary--fail { border-color: var(--ng); background: var(--ng-soft); }
+  .summary--fail .summary__headline { color: var(--ng); }
+
+  .bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;
+         font-size: .875rem; color: var(--mute); }
+  .bar button { font: inherit; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+                border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .bar label { cursor: pointer; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--surface);
+          border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  caption { text-align: left; font-weight: 700; padding: 10px 0 6px; }
+  th, td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--border);
+           vertical-align: top; font-size: .9rem; }
+  thead th { background: var(--surface-2); border-top: 0; font-size: .8rem; color: var(--mute); }
+  tr.t--pass td.st { color: var(--ok); font-weight: 700; }
+  tr.t--fail { background: var(--ng-soft); }
+  tr.t--fail td.st { color: var(--ng); font-weight: 700; }
+  tr.t--skip td.st { color: var(--skip); font-weight: 700; }
+  td.st { width: 3.2em; white-space: nowrap; }
+  td.ms { width: 5em; color: var(--mute); text-align: right; white-space: nowrap; }
+  .name { font-weight: 600; }
+  .asserts { margin: 6px 0 0; padding: 0; list-style: none; }
+  .asserts li { padding: 6px 0 6px 10px; border-left: 3px solid var(--ng); margin-top: 6px; }
+  .asserts li.a--pass { border-left-color: var(--border); color: var(--mute); }
+  .asserts li.a--skip { border-left-color: var(--skip); color: var(--skip); }
+  .kv { font-family: var(--mono); font-size: .82rem; white-space: pre-wrap;
+        overflow-wrap: anywhere; margin-top: 2px; }
+  .kv b { display: inline-block; min-width: 4.5em; font-family: inherit; }
+  .kv--exp b { color: var(--ok); }
+  .kv--act b { color: var(--ng); }
+  .trace { font-family: var(--mono); font-size: .8rem; color: var(--ng);
+           white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 6px; }
+  .loaded { margin-top: 24px; font-size: .85rem; color: var(--mute); }
+  .loaded code { font-family: var(--mono); }
+  .boot {
+    display: none; border: 2px solid var(--ng); background: var(--ng-soft); color: var(--ng);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; font-weight: 700;
+  }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+             overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .toast-area { position: fixed; right: 12px; bottom: 12px; display: grid; gap: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>つたわる English — 自己テスト</h1>
+  <p class="lead">
+    教材(<code>data/decks.js</code>)や採点まわりを触ったら、このページをダブルクリックで開いてください。
+    合格数と失敗数が下に出ます。音声と画面はここでは試せません(手で確かめる領域です)。
+  </p>
+
+  <div class="boot" id="bootErr">
+    ファイルの読み込みに失敗しました。<br>
+    このページは <code>app/test/</code> の中に置いたまま開いてください
+    (<code>app/js/</code> と <code>app/data/</code> を相対パスで読みに行きます)。
+  </div>
+
+  <div class="summary" id="summary">
+    <div class="summary__headline" id="headline">実行中…</div>
+    <div class="summary__sub" id="subline">スクリプトを読み込んでいます。</div>
+  </div>
+
+  <div class="bar">
+    <label><input type="checkbox" id="onlyFail"> 失敗だけ表示する</label>
+    <label><input type="checkbox" id="showAsserts"> 合格した検証も表示する</label>
+    <button type="button" id="rerun">もう一度実行(再読み込み)</button>
+  </div>
+
+  <table id="results">
+    <thead>
+      <tr><th>結果</th><th>テスト</th><th>時間</th></tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <div class="loaded" id="loaded"></div>
+</div>
+
+<!-- LC.util.toast / LC.util.announce が探す要素。無いと store の通知で落ちることがある -->
+<div id="statusRegion" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+<div id="toastArea" class="toast-area"></div>
+
+<script>
+/* ===================================================================
+ * 極小テスト DSL
+ *   test(name, fn) / eq(actual, expected, label)
+ *   near(actual, expected, tol, label) / ok(cond, label) / skip(label)
+ * cases.js は test() で登録するだけ。実行は全スクリプト読み込み後。
+ * =================================================================== */
+(function () {
+  'use strict';
+
+  var SUITE = [];
+  var current = null;
+
+  window.__TEST_CLEANUP__ = [];
+
+  window.test = function (name, fn) { SUITE.push({ name: name, fn: fn }); };
+
+  function record(entry) {
+    if (!current) return;              // test() の外から呼ばれた場合は黙って捨てる
+    current.asserts.push(entry);
+  }
+
+  function deepEqual(a, b) {
+    if (a === b) return true;
+    if (typeof a === 'number' && typeof b === 'number' && isNaN(a) && isNaN(b)) return true;
+    if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
+    var isArrA = Object.prototype.toString.call(a) === '[object Array]';
+    var isArrB = Object.prototype.toString.call(b) === '[object Array]';
+    if (isArrA !== isArrB) return false;
+    if (isArrA) {
+      if (a.length !== b.length) return false;
+      for (var i = 0; i < a.length; i++) if (!deepEqual(a[i], b[i])) return false;
+      return true;
+    }
+    var ka = Object.keys(a), kb = Object.keys(b);
+    if (ka.length !== kb.length) return false;
+    for (var j = 0; j < ka.length; j++) {
+      var k = ka[j];
+      if (!Object.prototype.hasOwnProperty.call(b, k)) return false;
+      if (!deepEqual(a[k], b[k])) return false;
+    }
+    return true;
+  }
+
+  function fmt(v) {
+    var s;
+    if (typeof v === 'string') s = '"' + v + '"';
+    else if (v === undefined) s = 'undefined';
+    else { try { s = JSON.stringify(v); } catch (e) { s = String(v); } }
+    if (s === undefined) s = String(v);
+    return s.length > 400 ? s.slice(0, 400) + ' …' : s;
+  }
+
+  window.eq = function (actual, expected, label) {
+    record({ pass: deepEqual(actual, expected), label: label || '(ラベルなし)',
+             actual: fmt(actual), expected: fmt(expected) });
+  };
+
+  window.near = function (actual, expected, tol, label) {
+    var pass = typeof actual === 'number' && isFinite(actual) &&
+               Math.abs(actual - expected) <= tol;
+    record({ pass: pass, label: label || '(ラベルなし)',
+             actual: fmt(actual), expected: expected + ' ± ' + tol });
+  };
+
+  window.ok = function (cond, label) {
+    record({ pass: !!cond, label: label || '(ラベルなし)',
+             actual: fmt(cond), expected: 'true と評価される値' });
+  };
+
+  window.skip = function (label) {
+    record({ pass: true, skipped: true, label: label || '(ラベルなし)',
+             actual: '-', expected: '-' });
+  };
+
+  /* ----------------------------------------------------------------- */
+
+  function runAll() {
+    for (var i = 0; i < SUITE.length; i++) {
+      var t = SUITE[i];
+      current = { name: t.name, asserts: [], error: null, ms: 0 };
+      var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
+      try {
+        t.fn();
+      } catch (e) {
+        current.error = (e && (e.stack || e.message)) || String(e);
+      }
+      var t1 = (window.performance && performance.now) ? performance.now() : Date.now();
+      current.ms = Math.round((t1 - t0) * 10) / 10;
+      t.result = current;
+      current = null;
+    }
+
+    /* cases.js が登録した後始末(テスト用 localStorage キーの削除など)を必ず走らせる */
+    for (var c = 0; c < window.__TEST_CLEANUP__.length; c++) {
+      try { window.__TEST_CLEANUP__[c](); } catch (e2) {}
+    }
+
+    render();
+  }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined && text !== null) n.textContent = String(text);
+    return n;
+  }
+
+  function render() {
+    var onlyFail = document.getElementById('onlyFail').checked;
+    var showAsserts = document.getElementById('showAsserts').checked;
+
+    var passTests = 0, failTests = 0;
+    var passAsserts = 0, failAsserts = 0, skipAsserts = 0;
+
+    for (var i = 0; i < SUITE.length; i++) {
+      var r = SUITE[i].result;
+      var failed = !!r.error;
+      for (var j = 0; j < r.asserts.length; j++) {
+        var a = r.asserts[j];
+        if (a.skipped) skipAsserts++;
+        else if (a.pass) passAsserts++;
+        else { failAsserts++; failed = true; }
+      }
+      r.failed = failed;
+      if (failed) failTests++; else passTests++;
+    }
+
+    var head = document.getElementById('headline');
+    var sub = document.getElementById('subline');
+    var box = document.getElementById('summary');
+    var allOk = failTests === 0 && failAsserts === 0;
+
+    head.textContent = allOk
+      ? '✅ 合格 ' + passAsserts + ' / 失敗 0'
+      : '❌ 合格 ' + passAsserts + ' / 失敗 ' + failAsserts;
+    sub.textContent = 'テスト ' + SUITE.length + ' 件(合格 ' + passTests + ' / 失敗 ' + failTests + ')'
+      + (skipAsserts ? ' ・ スキップした検証 ' + skipAsserts + ' 件' : '')
+      + (allOk ? ' ・ 問題ありません。' : ' ・ 下の赤い行を直してください。');
+    box.className = 'summary ' + (allOk ? 'summary--pass' : 'summary--fail');
+
+    var tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+
+    for (var k = 0; k < SUITE.length; k++) {
+      var t = SUITE[k], res = t.result;
+      if (onlyFail && !res.failed) continue;
+
+      var tr = el('tr', res.failed ? 't--fail' : 't--pass');
+      tr.appendChild(el('td', 'st', res.failed ? '✕ 失敗' : '✓ 合格'));
+
+      var td = el('td');
+      td.appendChild(el('div', 'name', t.name));
+
+      if (res.error) {
+        td.appendChild(el('div', 'trace', '例外が発生しました: ' + res.error));
+      }
+
+      var list = el('ul', 'asserts');
+      var shown = 0;
+      for (var m = 0; m < res.asserts.length; m++) {
+        var a2 = res.asserts[m];
+        var visible = !a2.pass || a2.skipped || showAsserts;
+        if (!visible) continue;
+        shown++;
+        var li = el('li', a2.skipped ? 'a--skip' : (a2.pass ? 'a--pass' : ''));
+        li.appendChild(el('div', null, (a2.skipped ? '― ' : (a2.pass ? '✓ ' : '✕ ')) + a2.label));
+        if (!a2.pass && !a2.skipped) {
+          var e1 = el('div', 'kv kv--exp');
+          e1.appendChild(el('b', null, '期待'));
+          e1.appendChild(document.createTextNode(a2.expected));
+          var e2 = el('div', 'kv kv--act');
+          e2.appendChild(el('b', null, '実際'));
+          e2.appendChild(document.createTextNode(a2.actual));
+          li.appendChild(e1);
+          li.appendChild(e2);
+        }
+        list.appendChild(li);
+      }
+      if (shown) td.appendChild(list);
+      else if (!res.error) {
+        td.appendChild(el('div', 'kv', res.asserts.length + ' 件の検証すべて合格'));
+      }
+
+      tr.appendChild(td);
+      tr.appendChild(el('td', 'ms', res.ms + ' ms'));
+      tbody.appendChild(tr);
+    }
+
+    var loaded = document.getElementById('loaded');
+    loaded.innerHTML = '';
+    var names = (window.LC && window.LC.__loaded) ? window.LC.__loaded.join(', ') : '(なし)';
+    loaded.appendChild(el('div', null, '読み込まれたモジュール: ' + names));
+    loaded.appendChild(el('div', null,
+      'デッキ数: ' + ((window.LC && window.LC.DECKS_RAW) ? window.LC.DECKS_RAW.length : 0) +
+      ' ・ 記録の保存モード: ' +
+      ((window.LC && window.LC.store && window.LC.store.getMode) ? window.LC.store.getMode() : '不明')));
+    loaded.appendChild(el('div', null,
+      'このページは localStorage の lc.__test__. で始まるキーだけを使い、終了時に必ず消しています。'));
+  }
+
+  window.__RENDER__ = render;
+  window.__RUN_ALL__ = runAll;
+})();
+</script>
+
+<script>
+/* スクリプトが 1 つでも読めなかったら、その場で分かるようにする */
+window.addEventListener('error', function (e) {
+  if (e.target && e.target.tagName === 'SCRIPT') {
+    document.getElementById('bootErr').style.display = 'block';
+  }
+}, true);
+</script>
+
+<!-- ★ DOM に触らない層だけを読み込む。音声・画面は読み込まない -->
+<script src="../js/01-util.js"></script>
+<script src="../js/02-store.js"></script>
+<script src="../data/decks.js"></script>
+<script src="../js/03-text.js"></script>
+<script src="../js/04-catalog.js"></script>
+
+<script src="./cases.js"></script>
+
+<script>
+document.getElementById('onlyFail').addEventListener('change', function () { window.__RENDER__(); });
+document.getElementById('showAsserts').addEventListener('change', function () { window.__RENDER__(); });
+document.getElementById('rerun').addEventListener('click', function () { location.reload(); });
+window.__RUN_ALL__();
+</script>
+</body>
+</html>
