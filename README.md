@@ -51,7 +51,11 @@
 
 ## 英会話練習アプリ
 
-`app/` に、部員が英語を声に出す回数を増やすための練習アプリを置いています。ブラウザだけで動き、費用もサーバーも不要です。使い方と保守方法は [app/README.md](./app/README.md)、技術的な判断根拠は [09 英会話練習 Web アプリ 技術検討資料](./docs/09-english-speaking-web-app.md) にあります。
+`app/` に、部員が英語を声に出す回数を増やすための練習アプリを置いています。ブラウザだけで動き、費用もサーバーも不要です。
+
+**公開URL: <https://kazuyan38.github.io/languageclub/app/>**
+
+使い方と保守方法は [app/README.md](./app/README.md)、技術的な判断根拠は [09 英会話練習 Web アプリ 技術検討資料](./docs/09-english-speaking-web-app.md) にあります。
 
 **動作環境はパソコンの Google Chrome を推奨し、インターネット接続が必須です。iPhone・iPad では動きません。**
 
