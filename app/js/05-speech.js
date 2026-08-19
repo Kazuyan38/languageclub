@@ -102,6 +102,15 @@ window.LC = window.LC || {};
      cancel() が onerror を発火させないケースがあり、それだと speak() の Promise が永久に未解決になる。 */
   var activeFinish = null;
 
+  /* stopSpeaking() のたびに進む世代番号。非同期の待ちを跨いだ後に
+     「その間に止められていないか」を判定するために使う。 */
+  var speakGeneration = 0;
+
+  /* speechSynthesis.cancel() の直後に speak() を呼ぶと、発話が丸ごと飲み込まれ
+     start も end も error も来ない(落とし穴 #10)。cancel から次の speak まで必ずこれだけ待つ。
+     06-session.js の CANCEL_TO_SPEAK_MS と同じ値。 */
+  var CANCEL_TO_SPEAK_MS = 200;
+
   /* 診断用のカウンタ(仕様 §10-4「timeout が 3 回連続なら読み上げが不安定」の判断材料)。 */
   var ttsStats = { timeouts: 0, consecutiveTimeouts: 0, fallbacks: 0, lastReason: null };
 
@@ -590,6 +599,7 @@ window.LC = window.LC || {};
         var rawRate = (typeof o.rate === 'number' && isFinite(o.rate)) ? o.rate
           : (st && typeof st.rate === 'number' ? st.rate : 0.9);
         var rate = clamp(rawRate, 0.5, 1.5);
+        var myGeneration = speakGeneration;
 
         speakChunks(String(text), voice, rate, o.onStart).then(function (r) {
           /* リモート音声フォールバック(Chrome 130 型リグレッション対策 / 仕様 §5-12・§10-4)。
@@ -618,24 +628,38 @@ window.LC = window.LC || {};
           ttsStats.fallbacks++;
           log('tts-fallback', { from: voice.name, to: local.name, reason: r.reason });
 
-          /* 1 回目で onstart が来ていなければ、再試行側で onStart を通知する(UI の状態が進まなくなるのを防ぐ)。 */
-          speakChunks(String(text), local, rate, r.started ? null : o.onStart).then(function (r2) {
-            recordReason(r2.reason);
-            if (r2.reason === 'end') {
-              activeVoice = local;             /* 以降はローカル音声を使う */
-              log('tts-fallback-ok', { name: local.name });
-              resolve('end');
+          /* ★ここに来る直前、ウォッチドッグが synth.cancel() を打っている(speakChunks 内)。
+             cancel() の直後に speak() を呼ぶと発話が丸ごと飲み込まれ、start も end も error も
+             来ない(落とし穴 #10)。待たずに再試行すると「救済のはずのフォールバックが必ず無音になり、
+             2 つ目のウォッチドッグ満了後に読み上げ機能が丸ごと無効化される」という最悪の結果になる。
+             他の呼び出し箇所(06-session.js / 09-screens.js)は全部 200ms 待っている。ここも合わせる。 */
+          setTimeout(function () {
+            /* 待っている間にユーザーが停止していたら、再試行せず素直に終わる。 */
+            if (myGeneration !== speakGeneration) {
+              recordReason('canceled');
+              resolve('canceled');
               return;
             }
-            if (r2.reason === 'canceled' || r2.reason === 'interrupted') {
-              resolve(r2.reason);              /* ユーザーが止めただけ。無効化しない */
-              return;
-            }
-            /* 再試行も失敗 → 読み上げ機能を無効化し、テキストのみで練習を継続させる */
-            ttsDisabled = true;
-            log('tts-disabled', { reason: r2.reason });
-            resolve(r2.reason);
-          });
+
+            /* 1 回目で onstart が来ていなければ、再試行側で onStart を通知する(UI の状態が進まなくなるのを防ぐ)。 */
+            speakChunks(String(text), local, rate, r.started ? null : o.onStart).then(function (r2) {
+              recordReason(r2.reason);
+              if (r2.reason === 'end') {
+                activeVoice = local;             /* 以降はローカル音声を使う */
+                log('tts-fallback-ok', { name: local.name });
+                resolve('end');
+                return;
+              }
+              if (r2.reason === 'canceled' || r2.reason === 'interrupted') {
+                resolve(r2.reason);              /* ユーザーが止めただけ。無効化しない */
+                return;
+              }
+              /* 再試行も失敗 → 読み上げ機能を無効化し、テキストのみで練習を継続させる */
+              ttsDisabled = true;
+              log('tts-disabled', { reason: r2.reason });
+              resolve(r2.reason);
+            });
+          }, CANCEL_TO_SPEAK_MS);
         });
       } catch (e) {
         log('tts-speak-failed', { message: String(e && e.message) });
@@ -650,6 +674,9 @@ window.LC = window.LC || {};
    *   この待ちは session 側(§5-14 playThenListen の手順 2)が持つ。
    */
   function stopSpeaking() {
+    /* 世代を進める。フォールバック再試行の 200ms 待ちの最中に止められた場合、
+       待ち明けに「もう止められている」と気づけるようにするため(#14 の延長)。 */
+    speakGeneration++;
     try { if (synth) synth.cancel(); } catch (e) { /* no-op */ }
     try { if (activeFinish) activeFinish('canceled'); } catch (e) { /* no-op */ }
     currentUtterance = null;

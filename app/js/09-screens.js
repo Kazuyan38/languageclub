@@ -847,7 +847,10 @@ window.LC = window.LC || {};
           onConfirm: function () {
             var ok = false;
             try { ok = LC.tracker.clearRecords(); } catch (e) { ok = false; }
+            /* ★消せなかったときに黙って戻ると「消えたはず」と誤解される。
+               体験モード(?demo=1)や readonly では localStorage に触らないので消えない。 */
             if (ok) toast(t('stats.cleared'));
+            else toast(t('stats.clearFailed'), 'warn');
             paint();
           }
         });

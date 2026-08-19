@@ -175,6 +175,11 @@ window.LC = window.LC || {};
     var speechDetected = false;
     /** TTS を鳴らしている最中か。speechSynthesis.speaking は判断に使わない(落とし穴 8)。 */
     var ttsActive = false;
+    /* 直近に読み上げが終わった時刻。0 は「まだ一度も鳴らしていない」。
+       ttsActive は speakOnce の実行中しか true にならないため、
+       「読み上げ直後に 🎤 話すだけ を押した」経路の判定には使えない(必ず false になる)。
+       残響をマイクが拾わないためのガード(落とし穴 12)は、この時刻からの経過で判定する。 */
+    var lastTtsEndedAt = 0;
     /** TTS の watchdog タイムアウトの連続回数(仕様 §10-4)。 */
     var ttsTimeoutStreak = 0;
     /** 読み上げ不可の案内は 1 セッション 1 回だけ。 */
@@ -484,19 +489,19 @@ window.LC = window.LC || {};
         });
       } catch (e) {
         /* 仕様上 speak() は投げないが、保険として握る(不変条件 4)。 */
-        ttsActive = false;
+        ttsActive = false; lastTtsEndedAt = Date.now();
         return Promise.resolve('synthesis-failed');
       }
       if (!p || typeof p.then !== 'function') {
-        ttsActive = false;
+        ttsActive = false; lastTtsEndedAt = Date.now(); lastTtsEndedAt = Date.now();
         return Promise.resolve('synthesis-failed');
       }
       return p.then(function (reason) {
-        ttsActive = false;
+        ttsActive = false; lastTtsEndedAt = Date.now();
         logSafe('session.tts', { reason: reason, started: started });
         return reason;
       }, function () {
-        ttsActive = false;
+        ttsActive = false; lastTtsEndedAt = Date.now();
         return 'synthesis-failed';
       });
     }
@@ -750,7 +755,10 @@ window.LC = window.LC || {};
         return { status: 'unavailable' };
       }
       if (r.status === 'busy') {
-        setPhase(Phase.IDLE, { reason: 'busy' });
+        /* 直前の認識の後始末(abort → end 待ち。最長 ABORT_GRACE_MS)が終わっていない。
+           ★notice を出さずに IDLE へ戻すと、画面上は「結果表示が消えただけで何も起きない」
+             に見えてユーザーが押しそこねたと誤解する。必ず理由を伝える。 */
+        setPhase(Phase.IDLE, { reason: 'busy', notice: msgText('practice.stillBusy') });
         endRun(token);
         return { status: 'busy' };
       }
@@ -894,13 +902,19 @@ window.LC = window.LC || {};
       lastInterim = '';
       speechDetected = false;
 
-      var wasSpeaking = ttsActive;
+      /* ★「読み上げが終わった直後に 🎤 話すだけ を押した」経路。
+         ttsActive で判定すると必ず false になる(listenOnce に入れるのは activeToken === 0 のときだけで、
+         そのときには speakOnce の後始末が済んで ttsActive は false に戻っている)。
+         そのため、直近の読み上げ終了時刻からの経過時間で残りのガードを計算する。
+         ここを飛ばすと、スピーカー利用時にお手本の残響を拾って
+         「何も言っていないのに高得点」が出る(落とし穴 12 / リスク R2)。 */
+      var sinceTts = lastTtsEndedAt ? (Date.now() - lastTtsEndedAt) : Infinity;
+      var remainingGuard = GUARD_MS - sinceTts;
       haltAudio();
 
-      if (wasSpeaking) {
-        /* 読み上げの残響をマイクが拾わないように 400ms 待つ。 */
+      if (remainingGuard > 0) {
         if (!setPhase(Phase.GUARD, { reason: 'listen-only-guard' })) { endRun(token); return { status: 'rejected' }; }
-        await sleepGuarded(GUARD_MS);
+        await sleepGuarded(remainingGuard);
         if (stale(token)) return staleResult();
       }
 

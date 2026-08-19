@@ -853,6 +853,52 @@
     eq(LC.store.getMode(), 'readonly', 'getMode() が readonly');
   });
 
+  /* ------------------------------------------------------------------ *
+   * 回帰テスト — レビューで見つかった不具合が戻ってこないようにする
+   * ------------------------------------------------------------------ */
+
+  test('回帰: alignWords はお手本側にも 200 語の上限を掛ける', function () {
+    if (!requires('align')) return;
+    /* 自作デッキは 20 語超を警告つきで受け入れるので、改行なしの長文を 1 行貼られると
+       ref が数百語になりうる。DP は O(ref × hyp) なので両側に上限が要る。 */
+    var longRef = [], i;
+    for (i = 0; i < 400; i++) longRef.push('word' + i);
+    var r = LC.align.alignWords(longRef, ['word0', 'word1']);
+    ok(!!r, '落ちずに結果が返る');
+    eq(r.truncated, true, 'truncated:true で打ち切りを申告する');
+    ok(r.ops.length <= 205, 'ops が ref の語数ぶん膨らまない(実際: ' + r.ops.length + ')');
+  });
+
+  test('回帰: parsePasted は読み飛ばした分を黙って捨てない', function () {
+    if (!requires('catalog')) return;
+    var lines = ['# 長すぎるカテゴリ'], i;
+    for (i = 0; i < 450; i++) lines.push('This is line number ' + i + '. | ' + i + ' 行目です。');
+    var r = LC.catalog.parsePasted(lines.join('\n'));
+    ok((r.errors || []).length >= 1, '読み飛ばしたことが errors に載る');
+    var joined = (r.errors || []).join(' / ');
+    ok(joined.indexOf('読み飛ば') >= 0, 'エラー文に「読み飛ばし」が含まれる(実際: ' + joined.slice(0, 120) + ')');
+  });
+
+  test('回帰: 体験モードでは reset() が false を返す(消せていないのに成功と言わない)', function () {
+    if (!requires('store')) return;
+    if (!rawAvailable()) { skip('この環境では localStorage が使えないためスキップ'); return; }
+    if (typeof LC.store.setDemoMode !== 'function') { skip('setDemoMode が無い'); return; }
+
+    var key = TEST_PREFIX + 'demoreset.v1';
+    var s = LC.store.createStore({ key: key, version: 1, fallback: { n: 0 } });
+    s.set({ n: 7 });
+    s.flush();
+
+    var was = false;
+    try { was = !!(LC.store.isDemoMode && LC.store.isDemoMode()); } catch (e) {}
+    LC.store.setDemoMode(true);
+    var cleared = s.reset();
+    LC.store.setDemoMode(was);
+
+    eq(cleared, false, '体験モードでは reset() が false(画面が「消しました」と嘘をつかない)');
+    /* キーの後始末は下の「後始末」テストが TEST_PREFIX でまとめて行う */
+  });
+
   test('store: 後始末(テスト用キーがすべて消えている)', function () {
     if (!rawAvailable()) { skip('この環境では localStorage が使えないためスキップ'); return; }
     cleanupTestKeys();

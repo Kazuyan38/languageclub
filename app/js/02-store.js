@@ -556,16 +556,24 @@ window.LC = window.LC || {};
         return persistNow(st);
       },
 
-      /** 初期値に戻し、キーごと削除する。 */
+      /**
+       * 初期値に戻し、キーごと削除する。
+       * @returns {boolean} localStorage の中身まで実際に消せたか。
+       *   ★消去はユーザーの明示的な操作なので、memory モードでも実際に消しに行く。
+       *     消せていないのに true を返すと、画面が「記録を消しました」と嘘をつき、
+       *     共有 PC で前の人の記録が残ったままになる。
+       *   体験モード(?demo=1)は「この端末に何も書かない」約束なので、
+       *     他人の記録を代わりに消すこともしない。false を返して画面に伝える。
+       *   readonly(= 自分より新しいバージョンが書いたデータ)も壊さない。
+       */
       reset: function () {
         cancelPending(st);
         st.cache = resolveFallback(st);
         st.loaded = true;
         st.dirty = false;
         if (own(memoryBox, st.key)) delete memoryBox[st.key];
-        if (demoMode || mode === 'readonly' || mode === 'memory') return true;
-        rawRemove(st.key);
-        return true;
+        if (demoMode || mode === 'readonly') return false;
+        return rawRemove(st.key);
       }
     };
 

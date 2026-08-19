@@ -142,7 +142,9 @@ window.LC = window.LC || {};
     phraseAccept: 'フレーズ %{id} の accept は文字列の配列にしてください',
     phraseFocus: 'フレーズ %{id} の focus に使えないタグがあります: %{tag}',
     noValidPhrase: '読み取れるフレーズが 1 つもありませんでした',
-    dupDeckId: 'デッキ id が重複しているため読み込みませんでした: %{id}'
+    dupDeckId: 'デッキ id が重複しているため読み込みませんでした: %{id}',
+    tooManyLines: '%{max} 行までしか読み込めないため、%{total} 行のうち後ろを読み飛ばしました',
+    tooManyPhrases: '1 カテゴリは %{max} フレーズまでです。超えた分は読み飛ばしました'
   };
 
   /** '%{x}' を差し替えるだけの極小テンプレート(LC.msg に依存させないため)。 */
@@ -434,10 +436,16 @@ window.LC = window.LC || {};
     try {
       var src = (text == null) ? '' : String(text);
       var lines = src.split(/\r\n|\r|\n/);
-      if (lines.length > MAX_PASTE_LINES) lines = lines.slice(0, MAX_PASTE_LINES);
+      /* ★黙って捨てない。捨てたことを必ず errors に載せる。
+         「追加しました」とだけ出て 401 行目以降が消えていると、原因の分からない事故になる。 */
+      if (lines.length > MAX_PASTE_LINES) {
+        errors.push(fill(VMSG.tooManyLines, { max: MAX_PASTE_LINES, total: lines.length }));
+        lines = lines.slice(0, MAX_PASTE_LINES);
+      }
 
       var deckId = 'custom-' + Date.now();
       var title = '';
+      var cappedReported = false;
 
       for (var i = 0; i < lines.length; i++) {
         var lineNo = i + 1;
@@ -469,7 +477,14 @@ window.LC = window.LC || {};
         if (n > MAX_PHRASE_WORDS) {
           warnings.push(new LineError(lineNo, t('decks.warnLong', { n: n })));
         }
-        if (phrases.length >= MAX_CUSTOM_PHRASES) continue;
+        if (phrases.length >= MAX_CUSTOM_PHRASES) {
+          /* 上限に達した最初の 1 回だけ報告する(行ごとに出すと画面が埋まる)。 */
+          if (!cappedReported) {
+            cappedReported = true;
+            errors.push(fill(VMSG.tooManyPhrases, { max: MAX_CUSTOM_PHRASES }));
+          }
+          continue;
+        }
 
         phrases.push({
           id: deckId + '-' + pad2(phrases.length + 1),
@@ -692,6 +707,7 @@ window.LC = window.LC || {};
   var MAX_SESSIONS = 200;       /* 仕様 §11-1: セッション履歴は最新 200 件 */
   var MAX_HEARD_PER_WORD = 6;   /* 誤認識先は上位数件で十分(容量の暴走を防ぐ) */
   var MAX_RUN = 20;             /* 1 フレーズの連続試行を数える上限 */
+  var RECENT_WORD_DAYS = 30;    /* 語統計の上限で「最近さわった語」とみなす日数 */
   var STREAK_LIMIT = 3650;      /* 連続日数の走査上限(無限ループ防止) */
 
   /* --- 一時状態(直列化しない。仕様 §6-1 の「一時状態」層)--------------- */
@@ -724,6 +740,12 @@ window.LC = window.LC || {};
   /* --- 語ごとの統計(wordstats)------------------------------------------ */
 
   /** 誤認識先が増えすぎたら回数の少ないものから捨てる。 */
+  /** 1 フレーズあたりの試行ウィンドウ。採点側の MAX_ATTEMPTS(既定 3)に合わせる。 */
+  function attemptWindow() {
+    var n = (LC.score && typeof LC.score.MAX_ATTEMPTS === 'number') ? LC.score.MAX_ATTEMPTS : 3;
+    return (isFinite(n) && n >= 1) ? n : 3;
+  }
+
   function capHeard(rec) {
     var keys = [], k;
     for (k in rec.h) if (own(rec.h, k)) keys.push(k);
@@ -734,12 +756,29 @@ window.LC = window.LC || {};
     rec.h = next;
   }
 
-  /** 500 語を超えたら attempts 降順で切る(挑戦回数が多い語ほど統計価値が高い)。 */
+  /**
+   * 500 語を超えたら切る。
+   * ★attempts 降順だけで切ると、上限に達した時点で「今日はじめて練習した語」(a=1)が
+   *   毎回いちばん下に来て即座に捨てられ、以後どれだけ練習しても新しい語が一切記録されない
+   *   =苦手語ランキングが古い語のまま永久に凍結する。
+   *   そこで「最近さわった語」を先に守り、そのうえで attempts 降順にする。
+   *   t は epochDay(1970-01-01 起点の日数)。
+   */
   function capWordStats(data) {
     var keys = [], k;
     for (k in data) if (own(data, k)) keys.push(k);
     if (keys.length <= MAX_WORDSTATS) return data;
-    keys.sort(function (x, y) { return num(data[y] && data[y].a) - num(data[x] && data[x].a); });
+
+    var today = epochDay();
+    function recent(w) {
+      var t = num(data[w] && data[w].t);
+      return (today - t) <= RECENT_WORD_DAYS ? 1 : 0;
+    }
+    keys.sort(function (x, y) {
+      var rd = recent(y) - recent(x);              /* 最近さわった語を先に残す */
+      if (rd !== 0) return rd;
+      return num(data[y] && data[y].a) - num(data[x] && data[x].a);
+    });
     var next = {};
     for (var i = 0; i < MAX_WORDSTATS; i++) next[keys[i]] = data[keys[i]];
     log('tracker.wordstats.capped', { from: keys.length, to: MAX_WORDSTATS });
@@ -846,9 +885,13 @@ window.LC = window.LC || {};
     run.push(sc);
     if (run.length > MAX_RUN) run.shift();
 
+    /* ★クリア判定は「直近 MAX_ATTEMPTS 回のうち 2 回通じたか」(仕様 §2-1 F3)。
+       run 全体(最大 20 件)で判定すると、日をまたいで通算 2 回通じただけでクリアになり、
+       画面の ●●○(今回の 3 回分)と食い違って「1 回しか通じていないのにクリア」に見える。 */
+    var window_ = run.slice(-attemptWindow());
     try {
       if (LC.score && typeof LC.score.passRate === 'function') {
-        if (LC.score.passRate(run).cleared) pr.cleared = true;
+        if (LC.score.passRate(window_).cleared) pr.cleared = true;
       } else if (sc >= passThreshold()) {
         pr.cleared = true;
       }
@@ -1309,11 +1352,14 @@ window.LC = window.LC || {};
       seenPhrases = null;
       scoreSum = 0;
       runs = Object.create(null);
-      st('progress').reset();
-      st('wordstats').reset();
-      st('sessions').reset();
-      log('tracker.clearRecords', {});
-      return true;
+      /* 3 つとも消せて初めて成功。1 つでも消せていなければ画面に「消しました」と
+         出させない(体験モードや readonly では実際には消えない)。 */
+      var a = st('progress').reset();
+      var b = st('wordstats').reset();
+      var c = st('sessions').reset();
+      var ok = (a !== false) && (b !== false) && (c !== false);
+      log('tracker.clearRecords', { ok: ok });
+      return ok;
     } catch (e) {
       log('tracker.clearRecords.error', { error: String(e) });
       return false;

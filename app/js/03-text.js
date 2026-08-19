@@ -586,6 +586,7 @@ window.LC = window.LC || {};
    * ============================================================ */
 
   var MAX_HYP_WORDS = 200;   /* 安全弁。O(N×M) が暴走しないように打ち切る */
+  var MAX_REF_WORDS = 200;   /* お手本側の安全弁。自作デッキに長文を貼られても固まらせない */
 
   /**
    * 単語単位レーベンシュタイン DP + バックトレース。
@@ -611,9 +612,12 @@ window.LC = window.LC || {};
     hyp = Array.isArray(hyp) ? hyp : [];
 
     /* ★安全弁: 認識器が暴走して数百語返しても固まらないようにする。
-     * お手本側(ref)は教材なので長さを信頼してよい(catalog が検証済み)。 */
+     * お手本側(ref)も切る。自作デッキは 20 語超を警告つきで受け入れるので、
+     * 改行なしの長文を 1 行貼られると ref が数百語になりうる(catalog が長さを保証しない)。
+     * DP は O(ref × hyp) なので、両側に上限が要る。 */
     var truncated = false;
     if (hyp.length > MAX_HYP_WORDS) { hyp = hyp.slice(0, MAX_HYP_WORDS); truncated = true; }
+    if (ref.length > MAX_REF_WORDS) { ref = ref.slice(0, MAX_REF_WORDS); truncated = true; }
 
     var n = ref.length, m = hyp.length, w = m + 1, i, j;
     var d = new Float64Array((n + 1) * w);
