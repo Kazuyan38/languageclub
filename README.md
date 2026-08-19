@@ -57,7 +57,7 @@
 
 使い方と保守方法は [app/README.md](./app/README.md)、技術的な判断根拠は [09 英会話練習 Web アプリ 技術検討資料](./docs/09-english-speaking-web-app.md) にあります。
 
-**動作環境はパソコンの Google Chrome を推奨し、インターネット接続が必須です。iPhone・iPad では動きません。**
+**動作環境はパソコンの Google Chrome を推奨し、インターネット接続が必須です。** Android の Chrome や iPhone・iPad の Safari でも使えますが、パソコンより不安定なことがあります(iPhone・iPad は Safari 以外のブラウザでは使えません)。
 
 ## ライセンス
 

@@ -978,9 +978,11 @@ window.LC = window.LC || {};
     'ios': {
       severity: 'fatal',
       fatal: true,
-      banner: '⚠ iPhone・iPad では音声認識が使えません',
-      title: 'iPhone・iPad では現在このアプリは使えません',
-      body: 'iOS では、どのブラウザを使っても音声認識のしくみが利用できません。パソコンの Google Chrome でお試しください。フレーズ集と和訳はこのまま読めます。',
+      /* ★ここに来るのは iPhone・iPad の Chrome / Firefox / Edge など。
+         iOS の Safari だけは音声認識が使えるので、この画面には来ない(別扱い。ios-safari 警告帯を参照)。 */
+      banner: '⚠ このブラウザでは音声認識が使えません',
+      title: 'このブラウザでは音声認識が使えません',
+      body: 'iPhone・iPad では、Safari 以外のブラウザ(Chrome・Firefox・Edge など)は音声認識のしくみが使えません。Safari で開くか、パソコンの Google Chrome でお試しください。フレーズ集と和訳はこのまま読めます。',
       actions: ['browse-only']
     },
     'insecure': {
@@ -1039,6 +1041,17 @@ window.LC = window.LC || {};
       banner: 'スマホでも使えますが、パソコンのほうが安定します',
       title: 'スマートフォンでも使えます',
       body: 'Android の Chrome でも練習できますが、パソコンのほうが認識が安定します。イヤホンを使うとさらに安定します。',
+      actions: []
+    },
+    /* iPhone・iPad の Safari は音声認識が使えるが、マイクが止まらない・結果が返らない
+       といった不具合が他ブラウザより多い(iOS 側の実装の制約)。塞がず先に進ませたうえで
+       正直に注意を出す。パソコンの Chrome を最も安定した選択肢として案内する。 */
+    'ios-safari': {
+      severity: 'warn',
+      fatal: false,
+      banner: 'iPhone・iPad でも使えますが、動作が不安定なことがあります',
+      title: 'iPhone・iPad(Safari)でも使えます',
+      body: 'Safari でも音声認識・読み上げを試せますが、マイクの録音が止まりにくい・結果が返らないなど、他の環境より不安定なことがあります。イヤホンの使用と、パソコンの Google Chrome が最も安定します。',
       actions: []
     }
   };

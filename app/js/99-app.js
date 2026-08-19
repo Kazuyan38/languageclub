@@ -405,6 +405,9 @@ window.LC = window.LC || {};
     setBanner('file-protocol', !!env.isFileProtocol, { url: PAGES_URL });
     setBanner('offline', navigator && navigator.onLine === false);
     setBanner('android', env.browserClass === 'chrome-android');
+    /* browserClass === 'ios' でここまで来る(=ブロック画面に振られていない)のは
+       常に iOS Safari(§10-2 判定で非 Safari は blockReason:'ios' になり別画面へ行く)。 */
+    setBanner('ios-safari', env.browserClass === 'ios' && !!env.supported);
     updateStorageBanner();
   }
 
