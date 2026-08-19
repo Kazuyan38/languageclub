@@ -562,14 +562,17 @@
     eq(dup.join(', '), '', '重複しているフレーズ id');
   });
 
-  test('同梱デッキ: 全フレーズが 6〜20 語に収まる', function () {
+  /* ★下限は 4 語。自然な会話には短い応答("That makes sense." など)が必須で、
+     6 語下限のままだと相づち・聞き返しの表現が 1 つも入れられない。
+     3 語以下は音声認識が拾いにくいので不可。 */
+  test('同梱デッキ: 全フレーズが 4〜20 語に収まる', function () {
     if (!requires('catalog', 'normalize') || !LC.DECKS_RAW) return;
     var bad = [];
     for (var i = 0; i < LC.DECKS_RAW.length; i++) {
       var ps = (LC.DECKS_RAW[i] && LC.DECKS_RAW[i].phrases) || [];
       for (var j = 0; j < ps.length; j++) {
         var n = norms(LC.normalize.tokenize(ps[j].text || '')).length;
-        if (n < 6 || n > 20) bad.push(ps[j].id + '(' + n + ' 語)');
+        if (n < 4 || n > 20) bad.push(ps[j].id + '(' + n + ' 語)');
       }
     }
     eq(bad.join(', '), '', '語数が範囲外のフレーズ(長いと 1 回で言い切れない)');

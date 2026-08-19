@@ -507,6 +507,42 @@ window.LC = window.LC || {};
 
       if (isDemo(st)) root.appendChild(p(t('common.demoNotice'), 'muted small'));
 
+      /* --- 練習のしかた(repeat / compose)-------------------------------
+         ★「聞いて繰り返す」だけでは会話で話せるようにならない。
+           日本語を見て英語を組み立てる練習(瞬間英作文)を対等な選択肢として
+           ホームの一番目立つ位置に置き、選んだモードをデッキのリンクに載せる。 */
+      var curMode = 'repeat';
+      try { curMode = (LC.settings.get().practiceMode === 'compose') ? 'compose' : 'repeat'; }
+      catch (e) { curMode = 'repeat'; }
+
+      function modeBtn(value, label) {
+        var on = (curMode === value);
+        var b = h('button', {
+          'class': ['seg__btn', on ? 'seg__btn--on' : null],
+          attrs: { type: 'button', 'aria-pressed': on ? 'true' : 'false' },
+          text: label,
+          on: { click: function () {
+            if (curMode === value) return;
+            try { LC.settings.update({ practiceMode: value }); } catch (e2) { /* 保存できなくても続行 */ }
+            curMode = value;
+            /* 選び直したらデッキのリンクを作り直す必要があるので、画面ごと描き直す。 */
+            try { LC.app.reRender(); } catch (e3) { /* 描き直せなくても設定は保存済み */ }
+            try { LC.util.announce(t('practice.modeSwitched')); } catch (e4) { /* noop */ }
+          } }
+        });
+        return b;
+      }
+
+      var modeSeg = h('div', { 'class': 'seg' },
+        modeBtn('repeat', t('practice.modeRepeat')),
+        modeBtn('compose', t('practice.modeCompose')));
+
+      root.appendChild(card(
+        h('h2', { 'class': 'field__label', text: t('practice.modeLabel') }),
+        modeSeg,
+        p(curMode === 'compose' ? t('practice.modeComposeDesc') : t('practice.modeRepeatDesc'),
+          'field__help')));
+
       /* --- デッキ一覧 --- */
       var decks = [];
       try { decks = LC.catalog.getDecks(); } catch (e) { decks = []; }
@@ -547,8 +583,13 @@ window.LC = window.LC || {};
 
         /* 途中まで進んでいれば「つづきから」。?i= はルーターが解釈する(§6-2)。 */
         var href = '#/practice/' + encodeURIComponent(deck.id);
+        var q = [];
         var resume = !complete && pr.lastIndex > 0;
-        if (resume) href += '?i=' + pr.lastIndex;
+        if (resume) q.push('i=' + pr.lastIndex);
+        /* 選んだ練習モードをリンクに載せる。設定にも保存済みなので二重だが、
+           URL に出しておくとブックマークや共有でモードごと渡せる。 */
+        if (curMode === 'compose') q.push('m=compose');
+        if (q.length) href += '?' + q.join('&');
 
         var progress = h('span', { 'class': 'deck-card__progress' });
         progress.appendChild(LC.ui.progressDots(done, total));
@@ -932,6 +973,14 @@ window.LC = window.LC || {};
         h('h2', { 'class': 'field__label', text: t('settings.voiceTitle') }),
         voiceBox);
       root.appendChild(voiceField);
+
+      /* --- 練習のしかた ---
+         ホームにも同じ切り替えがあるが、設定にも置いて「どこで変えるのか」を
+         探させないようにする。値は同じ practiceMode を見ている。 */
+      root.appendChild(segField('practice.modeLabel', 'practiceMode', [
+        { value: 'repeat', label: t('practice.modeRepeat') },
+        { value: 'compose', label: t('practice.modeCompose') }
+      ]));
 
       /* --- 読み上げの速さ(3 ボタン固定) --- */
       root.appendChild(segField('settings.rateTitle', 'rate', [

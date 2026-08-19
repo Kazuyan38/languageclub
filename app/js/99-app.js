@@ -495,9 +495,12 @@ window.LC = window.LC || {};
     if (head === 'practice') {
       if (!segs[1]) return { name: 'home', params: {}, redirectTo: '#/', notFound: true };
       var idx = parseInt(query.i, 10);
+      /* m=compose で瞬間英作文モード。指定が無ければ画面側が設定の既定を使う。
+         URL に載せているのは、ホームのリンクから直接モードを選ばせるため。 */
+      var mode = (query.m === 'compose' || query.m === 'repeat') ? query.m : null;
       return {
         name: 'practice',
-        params: { deckId: segs[1], i: (isFinite(idx) && idx >= 0) ? idx : null },
+        params: { deckId: segs[1], i: (isFinite(idx) && idx >= 0) ? idx : null, mode: mode },
         redirectTo: null
       };
     }

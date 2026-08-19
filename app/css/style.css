@@ -501,6 +501,30 @@ hr {
   line-height: var(--lh-tight);
 }
 
+/* --- 瞬間英作文モード -------------------------------------------------
+   英文を隠しているあいだは日本語が主役になるので、大きさを入れ替える。
+   .phrase-ja は repeat では補助、compose では主役。 */
+.phrase-compose-hint {
+  font-size: var(--fs-sm);
+  color: var(--c-text-mute);
+  line-height: var(--lh-tight);
+}
+.practice--compose .phrase-ja {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  color: var(--c-text);
+  line-height: var(--lh-base);
+}
+/* 答えが出たら日本語は補助に戻す(英文が主役に戻るため) */
+.practice--compose.practice--revealed .phrase-ja {
+  font-size: var(--fs-md);
+  font-weight: 400;
+  color: var(--c-text-mute);
+}
+.compose-actions {
+  margin-top: var(--sp-1);
+}
+
 /* 「🎧 イヤホンの使用をおすすめします」など、画面下の控えめな一言。
    R2(エコー)対策の最終防衛線なので、消さないこと。 */
 .hint-line {

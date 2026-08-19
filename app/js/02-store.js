@@ -1122,10 +1122,14 @@ window.LC = window.LC || {};
     autoListen: true,
     showScore: false,   /* 既定で数値スコアを出さない(R13) */
     saveRecords: true,
-    theme: 'auto'
+    theme: 'auto',
+    /* 練習モード。'repeat' = お手本を聞いて繰り返す / 'compose' = 日本語を見て英語で言う(瞬間英作文)。
+       compose は「自分で英語を組み立てる」練習で、会話で話せるようになるにはこちらが要る。 */
+    practiceMode: 'repeat'
   };
 
   var LANGS = ['en-US', 'en-GB'];
+  var PRACTICE_MODES = ['repeat', 'compose'];
   var RATES = [0.7, 0.9, 1.1];     /* スライダーにしない。3 段固定(§7-6) */
   var THEMES = ['auto', 'light', 'dark'];
 
@@ -1178,6 +1182,7 @@ window.LC = window.LC || {};
     out.autoListen = coerceBool(raw.autoListen, SETTINGS_DEFAULTS.autoListen);
     out.showScore = coerceBool(raw.showScore, SETTINGS_DEFAULTS.showScore);
     out.saveRecords = coerceBool(raw.saveRecords, SETTINGS_DEFAULTS.saveRecords);
+    if (inList(PRACTICE_MODES, raw.practiceMode)) out.practiceMode = raw.practiceMode;
     if (inList(THEMES, raw.theme)) out.theme = raw.theme;
     return out;
   }

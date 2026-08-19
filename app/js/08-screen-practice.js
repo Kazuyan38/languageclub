@@ -201,6 +201,23 @@ window.LC = window.LC || {};
     var destroyed = false;
     var completed = false;         /* サマリへ遷移済み(二重遷移の防止) */
 
+    /* --- 練習モード -------------------------------------------------------
+       'repeat'  お手本を聞いてから同じ文を言う。発音を通じさせる練習。
+       'compose' 日本語だけを見て英語を組み立てて言う(瞬間英作文)。
+                 ★「聞いて繰り返す」だけでは会話で話せるようにならないので、
+                   自分で英語を作る練習をこちらで用意する。採点ロジックは同じ
+                   (お手本と accept が正解なので、そのまま比較できる)。
+       URL の ?m= が優先。無ければ設定の practiceMode を使う。 */
+    var mode = (params.mode === 'compose' || params.mode === 'repeat') ? params.mode : null;
+    if (!mode) {
+      var sset = null;
+      try { sset = LC.settings.get(); } catch (e) { sset = null; }
+      mode = (sset && sset.practiceMode === 'compose') ? 'compose' : 'repeat';
+    }
+    var isCompose = (mode === 'compose');
+    /* compose では「答えを見た/聞いた」あとは英文が出たままにする(フレーズごとにリセット)。 */
+    var answerRevealed = false;
+
     /* このフレーズがこの画面でクリアされたか(進捗ドットを即時に反映するため)。
        tracker への確定は session 側で遅延されるので、画面はここを併用する。 */
     var localCleared = Object.create(null);
@@ -217,7 +234,10 @@ window.LC = window.LC || {};
      * 3-1. DOM を組み立てる
      * ====================================================================== */
 
-    var el = h('section', { 'class': 'practice', data: { phase: Phase.IDLE } });
+    var el = h('section', {
+      'class': ['practice', (mode === 'compose') ? 'practice--compose' : null],
+      data: { phase: Phase.IDLE, mode: mode }
+    });
 
     /* --- 見出し行: ← / カテゴリ名 / 2 / 6 --------------------------------- */
     var backLink = h('a', {
@@ -249,7 +269,32 @@ window.LC = window.LC || {};
       h('span', { text: '💡', attrs: { 'aria-hidden': 'true' } }), noteTextEl);
     var attemptWrap = h('div', { 'class': 'practice__attempts' });
 
-    el.appendChild(h('article', { 'class': ['card', 'phrase-card'] }, enEl, jaEl, noteEl, attemptWrap));
+    /* --- compose(瞬間英作文)専用のパーツ --------------------------------- */
+    var composeHintEl = h('p', { 'class': 'phrase-compose-hint', text: t('practice.composeHint') });
+    composeHintEl.hidden = !isCompose;
+
+    var btnReveal = null;
+    var btnHear = null;
+    var composeActions = h('div', { 'class': 'actions actions--sub compose-actions' });
+    if (isCompose) {
+      /* 降参用。思い出せないまま固まるより、見て言い直すほうが練習になる。 */
+      btnReveal = iconBtn('btnReveal', '👁', t('practice.btnRevealAnswer'), [], function () {
+        revealAnswer();
+        announce(t('practice.composeAnswerLabel'));
+      });
+      /* 答えが出たあとに音でも確認できるように。 */
+      btnHear = iconBtn('btnHearAnswer', '🔊', t('practice.btnHearAnswer'), [], function () {
+        ignore(session.playModel());
+      });
+      btnHear.hidden = true;
+      composeActions.appendChild(btnReveal);
+      composeActions.appendChild(btnHear);
+    } else {
+      composeActions.hidden = true;
+    }
+
+    el.appendChild(h('article', { 'class': ['card', 'phrase-card'] },
+      composeHintEl, enEl, jaEl, noteEl, composeActions, attemptWrap));
 
     /* --- エラー(E)と結果(D)。どちらも同一画面の下に展開する ------------ */
     var errorArea = h('div', { 'class': 'practice__error' });
@@ -298,6 +343,9 @@ window.LC = window.LC || {};
     });
     var btnPrev = iconBtn('btnPrev', '←', t('practice.btnPrev'), null, doPrev);
     var btnNext = iconBtn('btnNext', null, t('practice.btnNext'), null, doNext);
+
+    /* compose では主ボタン自体が「録音だけ」なので、🎤「話すだけ」は重複する。隠す。 */
+    if (isCompose) btnListenOnly.hidden = true;
 
     var subRow = h('div', { 'class': ['actions', 'actions--sub'] },
       btnPlayModel, btnSlow, btnListenOnly, btnPrev, btnNext);
@@ -468,7 +516,9 @@ window.LC = window.LC || {};
             kbd: t('practice.keyHintSpace'), retry: true
           };
         default:
-          return { icon: '▶', label: t('practice.btnStart'), disabled: false, kbd: t('practice.keyHintSpace') };
+          return isCompose
+            ? { icon: '🎤', label: t('practice.btnCompose'), disabled: false, kbd: t('practice.keyHintSpace') }
+            : { icon: '▶', label: t('practice.btnStart'), disabled: false, kbd: t('practice.keyHintSpace') };
       }
     }
 
@@ -482,12 +532,24 @@ window.LC = window.LC || {};
       /* ★SPEAKING / GUARD / LISTENING / SCORING では副ボタンを実際に disabled にする。
          TTS を鳴らしている最中に録音を始められる導線を UI に残さない(R2 対策)。 */
       var navOk = (phase === Phase.IDLE || phase === Phase.REVIEW);
+      /* compose では答えを見る前に「お手本だけ」「ゆっくり」を押せてしまうと、
+         聞いた瞬間に答えが分かって練習にならない。答えを出すまで隠す。 */
+      if (isCompose) {
+        btnPlayModel.hidden = !answerRevealed;
+        btnSlow.hidden = !answerRevealed;
+      }
       setDisabled(btnPlayModel, !navOk);
       setDisabled(btnSlow, !navOk);
       setDisabled(btnListenOnly, !navOk);
       setDisabled(btnPrev, !navOk || session.getIndex() <= 0);
       setDisabled(btnNext, !navOk);
       setDisabled(btnExclude, !navOk);
+      setDisabled(btnReveal, !navOk);
+      setDisabled(btnHear, !navOk);
+
+      /* ★compose では採点が出た時点で答えを見せる。
+         「言えなかった → 正解を見る」までを 1 画面で完結させないと練習にならない。 */
+      if (isCompose && phase === Phase.REVIEW) revealAnswer();
 
       excludeLine.hidden = !(phase === Phase.REVIEW && hasExcludable());
       el.setAttribute('data-phase', phase);
@@ -688,12 +750,44 @@ window.LC = window.LC || {};
       noteTextEl.textContent = phrase.note || '';
       noteEl.hidden = !phrase.note;
 
+      /* compose では、答えを見る前に英文と 💡 ヒントを隠す。
+         ヒントは綴りを含むことがあるので一緒に隠さないと答えが割れる。 */
+      answerRevealed = false;
+      applyAnswerVisibility();
+
       /* 最後のフレーズでは「次へ」を「このカテゴリを終える」に変える。
          押した先がサマリであることを、押す前に分かるようにする。 */
       fillBtn(btnNext, null, (index >= total - 1) ? t('practice.btnFinish') : t('practice.btnNext'), null);
       setDisabled(btnPrev, !session.canNavigate() || index <= 0);
 
       refreshDots();
+    }
+
+    /**
+     * compose(瞬間英作文)で、お手本の英文とヒントの出し入れをする。
+     * repeat では常に出したまま(仕様 §7-3 A「英文は常時表示。隠さない」)。
+     */
+    function applyAnswerVisibility() {
+      if (!isCompose) { enEl.hidden = false; return; }
+      var show = answerRevealed;
+      enEl.hidden = !show;
+      /* 💡 ヒントは綴りを含むことがあるので、答えと同時に出す。 */
+      var phrase = session.getPhrase();
+      noteEl.hidden = !show || !(phrase && phrase.note);
+      if (btnReveal) btnReveal.hidden = show;
+      if (btnHear) btnHear.hidden = !show;
+      if (btnPlayModel) btnPlayModel.hidden = !show;
+      if (btnSlow) btnSlow.hidden = !show;
+      composeHintEl.hidden = show;
+      /* 答えが出たら日本語を主役から補助に戻す(CSS が大きさを入れ替える)。 */
+      toggleClass(el, 'practice--revealed', show);
+    }
+
+    /** 答えを出す。採点のあとは自動で呼ばれ、途中で降参したときは手動で呼ばれる。 */
+    function revealAnswer() {
+      if (!isCompose || answerRevealed) return;
+      answerRevealed = true;
+      applyAnswerVisibility();
     }
 
     function refreshDots() {
@@ -735,7 +829,11 @@ window.LC = window.LC || {};
         return;
       }
       if (phase === Phase.IDLE || phase === Phase.REVIEW) {
-        ignore(session.playThenListen());
+        /* ★compose(瞬間英作文)ではお手本を先に鳴らさない。
+           先に聞かせてしまうと「思い出して組み立てる」練習にならない。
+           listenOnce() は TTS を挟まず録音だけを行う(排他は session が担保)。 */
+        if (isCompose) ignore(session.listenOnce());
+        else ignore(session.playThenListen());
         return;
       }
       /* SPEAKING / GUARD / SCORING / BLOCKED では何もしない(ボタンは disabled)。 */

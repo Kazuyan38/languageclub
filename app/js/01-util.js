@@ -579,6 +579,14 @@ window.LC = window.LC || {};
       backToHome: 'ホームへもどる',
 
       btnStart: 'お手本を聞いて、話す',
+      /* 瞬間英作文モード。日本語だけを見て英語を組み立てて言う。
+         「聞いて繰り返す」では話せるようにならないので、こちらが本命の練習。 */
+      btnCompose: '日本語を見て、英語で言う',
+      btnComposeShort: '英語で言う',
+      composeHint: '日本語だけを見て、英語で言ってみましょう。答えは話したあとに出ます。',
+      composeAnswerLabel: 'お手本',
+      btnRevealAnswer: '答えを見る',
+      btnHearAnswer: '答えを聞く',
       btnSpeaking: '🔊 読み上げ中…',
       btnGuard: 'まもなく録音します…',
       btnListening: '🔴 どうぞ、話してください',
@@ -597,6 +605,12 @@ window.LC = window.LC || {};
       keyHintSpace: 'Space',
       keyHintRetry: 'R',
       keyHelp: 'Space: 話す / R: もう一度 / S: ゆっくり / N: 次へ / P: 前へ / X: 除く / Esc: 停止',
+      modeLabel: '練習のしかた',
+      modeRepeat: '聞いて繰り返す',
+      modeCompose: '日本語→英語',
+      modeRepeatDesc: 'お手本を聞いてから、同じ文を言います。発音を通じさせる練習。',
+      modeComposeDesc: '日本語だけを見て、自分で英語を組み立てて言います。話せるようになるための練習。',
+      modeSwitched: '練習のしかたを切り替えました。',
 
       attemptsAria: '%{max} 回中 %{n} 回、機械に伝わりました',
       remainSeconds: '残り %{n} 秒で自動終了',
